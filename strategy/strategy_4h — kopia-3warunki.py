@@ -1,4 +1,4 @@
-# strategy/strategy_4h.py — 4H PRO (EMA TREND + MACD CROSS, ATR meta)
+# strategy/strategy_4h.py — 4H PRO (LOOSE BUY: EMA + MACD)
 
 from typing import Tuple, Optional
 import pandas as pd
@@ -48,7 +48,7 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
         cfg.MACD_SIGNAL,
     )
 
-    # RSI (info)
+    # RSI
     delta = close.diff()
     gain = np.where(delta > 0, delta, 0.0)
     loss = np.where(delta < 0, -delta, 0.0)
@@ -57,7 +57,7 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     rs = roll_up / (roll_down + 1e-9)
     rsi = 100.0 - (100.0 / (1.0 + rs))
 
-    # STOCH (info)
+    # STOCH
     k, d = _stoch(df, cfg.STOCH_K, cfg.STOCH_D)
 
     # ATR
@@ -76,24 +76,25 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     prev_k = float(k.iloc[-2])
     last_d = float(d.iloc[-1])
 
-    # WARUNKI WEJŚCIA (sensowne, ale nie beton)
-    up_trend = last_price > last_ema_slow          # cena ponad EMA slow
-    macd_cross_up = prev_macd < prev_signal and last_macd > last_signal  # momentum w górę
+    # ───────────────────────────────
+    # LOOSE BUY — tylko 2 warunki:
+    # 1. Trend UP (EMA slow)
+    # 2. MACD cross UP
+    # ───────────────────────────────
+    up_trend = last_price > last_ema_slow
+    macd_cross_up = prev_macd < prev_signal and last_macd > last_signal
 
-    # DEBUG — pełny obraz, ale BUY zależy tylko od UP + MACD
-    stoch_from_oversold = prev_k < cfg.STOCH_OS and last_k > prev_k
-    rsi_ok = last_rsi > cfg.RSI_MIN
-
+    # DEBUG — pełne info
     print(
-        f"UP={up_trend} | MACD={macd_cross_up} | STOCH={stoch_from_oversold} | RSI={rsi_ok} | PRICE={last_price}"
+        f"UP={up_trend} | MACD={macd_cross_up} | STOCH={prev_k < cfg.STOCH_OS and last_k > prev_k} | RSI={last_rsi > cfg.RSI_MIN} | PRICE={last_price}"
     )
 
-    # LOGIKA BUY
+    # LOOSE BUY
     signal = None
     if up_trend and macd_cross_up:
         signal = "BUY"
 
-    # META dla ATR PRO i logów
+    # META
     meta = {
         "price": last_price,
         "df": df,

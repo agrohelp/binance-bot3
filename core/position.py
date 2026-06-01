@@ -22,9 +22,7 @@ def update_position_with_signal(
     current_position = position_state.get("position")
     price = meta.get("price")
 
-    # ─────────────────────────────────────────────
     # 1. BUY — otwarcie pozycji
-    # ─────────────────────────────────────────────
     if signal == "BUY" and current_position is None:
         position_state["position"] = "LONG"
         position_state["entry_price"] = price
@@ -35,9 +33,7 @@ def update_position_with_signal(
         alert_text = f"🟢 BUY {symbol} @ {price}"
         return position_state, alert_text
 
-    # ─────────────────────────────────────────────
     # 2. SELL — zamknięcie pozycji
-    # ─────────────────────────────────────────────
     if signal == "SELL" and current_position == "LONG":
         entry = position_state.get("entry_price")
         pnl = price - entry if entry is not None else None
@@ -55,12 +51,10 @@ def update_position_with_signal(
 
         return position_state, alert_text
 
-    # ─────────────────────────────────────────────
     # 3. ATR PRO — trailing stop
-    # ─────────────────────────────────────────────
     if current_position == "LONG":
         position_state, ts_alert = atr_pro_trailing(
-            meta["df"],  # przekazujemy pełne świece
+            meta["df"],
             position_state,
             cfg,
         )
@@ -68,7 +62,7 @@ def update_position_with_signal(
         if ts_alert:
             return position_state, ts_alert
 
-        # Sprawdzenie SL (TS)
+        # SL
         sl = position_state.get("sl")
         if sl and price <= sl:
             entry = position_state.get("entry_price")

@@ -1,0 +1,17 @@
+Rozumiem Cię: chcesz nie „agresywny test”, tylko normalną, sensowną strategię, która:
+
+daje wejście BUY, gdy ma to ręce i nogi
+
+daje wyjście SELL/SL poprawnie przez ATR PRO
+
+nie jest ani za sztywna, ani za głupio‑luźna
+
+Czyli: trend + momentum, reszta jako info.
+
+Dam Ci teraz jedną, konkretną wersję, którą sam bym używał jako bazę:
+
+BUY: trend UP (EMA slow) + MACD cross UP
+
+EXIT: ATR PRO + SL HIT (masz już w core/position.py)
+
+To jest stabilna, logiczna, produkcyjna wersja.

@@ -1,4 +1,4 @@
-# strategy/strategy_4h.py — 4H PRO (EMA TREND + MACD CROSS, ATR meta)
+# strategy/strategy_4h.py — 4H PRO (EMA + MACD + RSI + STOCH + ATR meta)
 
 from typing import Tuple, Optional
 import pandas as pd
@@ -48,7 +48,7 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
         cfg.MACD_SIGNAL,
     )
 
-    # RSI (info)
+    # RSI
     delta = close.diff()
     gain = np.where(delta > 0, delta, 0.0)
     loss = np.where(delta < 0, -delta, 0.0)
@@ -57,7 +57,7 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     rs = roll_up / (roll_down + 1e-9)
     rsi = 100.0 - (100.0 / (1.0 + rs))
 
-    # STOCH (info)
+    # STOCH
     k, d = _stoch(df, cfg.STOCH_K, cfg.STOCH_D)
 
     # ATR
@@ -76,24 +76,23 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     prev_k = float(k.iloc[-2])
     last_d = float(d.iloc[-1])
 
-    # WARUNKI WEJŚCIA (sensowne, ale nie beton)
-    up_trend = last_price > last_ema_slow          # cena ponad EMA slow
-    macd_cross_up = prev_macd < prev_signal and last_macd > last_signal  # momentum w górę
-
-    # DEBUG — pełny obraz, ale BUY zależy tylko od UP + MACD
+    # Warunki
+    up_trend = last_price > last_ema_slow
+    macd_cross_up = prev_macd < prev_signal and last_macd > last_signal
     stoch_from_oversold = prev_k < cfg.STOCH_OS and last_k > prev_k
     rsi_ok = last_rsi > cfg.RSI_MIN
 
+    # DEBUG
     print(
         f"UP={up_trend} | MACD={macd_cross_up} | STOCH={stoch_from_oversold} | RSI={rsi_ok} | PRICE={last_price}"
     )
 
-    # LOGIKA BUY
+    # LOGIKA PRODUKCYJNA (bez wymuszenia BUY)
     signal = None
-    if up_trend and macd_cross_up:
+    if up_trend and macd_cross_up and stoch_from_oversold and rsi_ok:
         signal = "BUY"
 
-    # META dla ATR PRO i logów
+    # META
     meta = {
         "price": last_price,
         "df": df,
