@@ -1,0 +1,32 @@
+# --- ŚRODOWISKO PYTHON ---
+venv/
+env/
+ENV/
+.venv/
+
+# --- PLIKI SYSTEMOWE ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- LOGI ---
+*.log
+logs/
+log/
+
+# --- KONFIGURACJE Z DANYMI WRAŻLIWYMI ---
+config.py
+config.json
+*.env
+.env
+.env.*
+
+# --- PLIKI TYMCZASOWE ---
+*.tmp
+*.temp
+*.bak
+
+# --- WINDOWS / VS CODE ---
+Thumbs.db
+.vscode/
