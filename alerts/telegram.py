@@ -1,7 +1,9 @@
-# alerts/telegram.py — v0.1.4
+# v0.1.4 — multi-symbol anti-spam (commit test)
+
 # Multi-symbol anti-spam
 # Każdy symbol ma własny ostatni alert BUY/SELL
 # START/ERROR pozostają wspólne (systemowe)
+# ja drugi raz commit
 
 import json
 import os
