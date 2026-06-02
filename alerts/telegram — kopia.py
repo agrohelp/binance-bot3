@@ -1,7 +1,6 @@
-# alerts/telegram.py — v0.1.4
-# Multi-symbol anti-spam
-# Każdy symbol ma własny ostatni alert BUY/SELL
-# START/ERROR pozostają wspólne (systemowe)
+# alerts/telegram.py — v0.1.3
+# Anti-spam, multi-user, jeden ostatni alert
+# + pełne alerty BUY / SELL / START / ERROR
 
 import json
 import os
@@ -21,8 +20,7 @@ from alerts.formats import (
     fmt_start,
 )
 
-# Plik systemowy (START/ERROR)
-STATE_FILE_SYSTEM = "state/telegram_state_system.json"
+STATE_FILE = "state/telegram_state.json"
 
 BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
@@ -31,16 +29,16 @@ BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 #  Obsługa stanu (anti-spam)
 # ─────────────────────────────────────────────
 
-def _load_state(path: str):
-    """Wczytuje stan z podanej ścieżki."""
-    if not os.path.exists(path):
+def _load_state():
+    """Wczytuje stan ostatnich wiadomości."""
+    if not os.path.exists(STATE_FILE):
         return {
             "last_production_message_id": None,
             "last_system_message_id": None,
         }
 
     try:
-        with open(path, "r") as f:
+        with open(STATE_FILE, "r") as f:
             return json.load(f)
     except Exception:
         return {
@@ -49,9 +47,9 @@ def _load_state(path: str):
         }
 
 
-def _save_state(path: str, state):
-    """Zapisuje stan do podanej ścieżki."""
-    with open(path, "w") as f:
+def _save_state(state):
+    """Zapisuje stan wiadomości."""
+    with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
 
 
@@ -71,7 +69,7 @@ def _delete_message(chat_id, message_id):
             timeout=5,
         )
     except Exception:
-        pass
+        pass  # jedyny try/except w module
 
 
 def _send(chat_id, text):
@@ -89,19 +87,19 @@ def _send(chat_id, text):
 
 
 # ─────────────────────────────────────────────
-#  Alert produkcyjny — osobny plik per symbol
+#  Alert produkcyjny — tylko jeden ostatni
 # ─────────────────────────────────────────────
 
-def send_production_alert(symbol: str, text: str):
+def send_production_alert(text: str):
     """
-    BUY/SELL — każdy symbol ma własny plik stanu:
-    state/telegram_state_<SYMBOL>.json
+    Alert produkcyjny:
+    - wysyłany do wielu odbiorców (CHAT_IDS)
+    - ale trzymamy tylko JEDEN ostatni alert
     """
-    state_file = f"state/telegram_state_{symbol}.json"
-    state = _load_state(state_file)
+    state = _load_state()
     last_id = state.get("last_production_message_id")
 
-    # Usuń poprzedni alert dla tego symbolu
+    # Usuń poprzedni alert u wszystkich odbiorców
     if last_id:
         for chat_id in TELEGRAM_CHAT_IDS:
             _delete_message(chat_id, last_id)
@@ -113,30 +111,35 @@ def send_production_alert(symbol: str, text: str):
 
     # Zapisz ID ostatniego alertu
     state["last_production_message_id"] = new_id
-    _save_state(state_file, state)
+    _save_state(state)
 
 
 # ─────────────────────────────────────────────
-#  Alert systemowy — wspólny
+#  Alert systemowy — tylko jeden ostatni
 # ─────────────────────────────────────────────
 
 def send_system_alert(text: str):
     """
-    START/ERROR — jeden ostatni alert systemowy (admin only)
+    Alert systemowy:
+    - wysyłany tylko do admina
+    - trzymamy tylko JEDEN ostatni alert systemowy
     """
     if not TELEGRAM_ADMIN_ID:
         return
 
-    state = _load_state(STATE_FILE_SYSTEM)
+    state = _load_state()
     last_id = state.get("last_system_message_id")
 
+    # Usuń poprzedni alert systemowy
     if last_id:
         _delete_message(TELEGRAM_ADMIN_ID, last_id)
 
+    # Wyślij nowy alert
     new_id = _send(TELEGRAM_ADMIN_ID, text)
 
+    # Zapisz ID
     state["last_system_message_id"] = new_id
-    _save_state(STATE_FILE_SYSTEM, state)
+    _save_state(state)
 
 
 # ─────────────────────────────────────────────
@@ -144,13 +147,15 @@ def send_system_alert(text: str):
 # ─────────────────────────────────────────────
 
 def send_buy_alert(symbol: str, price: float):
+    """Alert BUY — multi-user + anti-spam."""
     text = fmt_buy(symbol, price)
-    send_production_alert(symbol, text)
+    send_production_alert(text)
 
 
 def send_sell_alert(symbol: str, price: float, pnl: float | None = None):
+    """Alert SELL — multi-user + anti-spam."""
     text = fmt_sell(symbol, price, pnl)
-    send_production_alert(symbol, text)
+    send_production_alert(text)
 
 
 # ─────────────────────────────────────────────
@@ -158,10 +163,12 @@ def send_sell_alert(symbol: str, price: float, pnl: float | None = None):
 # ─────────────────────────────────────────────
 
 def send_start_alert(symbol: str, interval: str, mode: str):
+    """Alert START — admin only + anti-spam."""
     text = fmt_start(symbol, interval, mode)
     send_system_alert(text)
 
 
 def send_error_alert(symbol: str, error: Exception):
+    """Alert ERROR — admin only + anti-spam."""
     text = fmt_error(symbol, str(error))
     send_system_alert(text)
