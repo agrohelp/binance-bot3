@@ -1,4 +1,5 @@
-# strategy/strategy_4h.py — 4H PRO (EMA TREND + MACD CROSS, ATR + STATUS PRO meta)
+# strategy/strategy_4h.py — 4H PRO v2.4
+# EMA TREND + MACD CROSS, ATR + STATUS PRO meta + dynamic SUMMARY
 
 from typing import Tuple, Optional
 import pandas as pd
@@ -68,6 +69,7 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     atr = atr_core(df, cfg.ATR_PERIOD)
     last_price = float(close.iloc[-1])
 
+
     # Ostatnia świeca
     last_ema_fast = float(ema_fast.iloc[-1])
     last_ema_slow = float(ema_slow.iloc[-1])
@@ -80,27 +82,24 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     prev_k = float(k.iloc[-2])
     last_d = float(d.iloc[-1])
 
-    # WARUNKI WEJŚCIA (sensowne, ale nie beton)
-    up_trend = last_price > last_ema_slow          # cena ponad EMA slow
-    macd_cross_up = prev_macd < prev_signal and last_macd > last_signal  # momentum w górę
+    # WARUNKI WEJŚCIA
+    up_trend = last_price > last_ema_slow
+    macd_cross_up = prev_macd < prev_signal and last_macd > last_signal
 
-    # DEBUG — pełny obraz, ale BUY zależy tylko od UP + MACD
-    stoch_from_oversold = prev_k < cfg.STOCH_OS and last_k > prev_k
-    rsi_ok = last_rsi > cfg.RSI_MIN
-
+    # DEBUG
     print(
-        f"UP={up_trend} | MACD={macd_cross_up} | STOCH={stoch_from_oversold} | RSI={rsi_ok} | PRICE={last_price}"
+        f"UP={up_trend} | MACD={macd_cross_up} | STOCH={prev_k < cfg.STOCH_OS and last_k > prev_k} | RSI={last_rsi > cfg.RSI_MIN} | PRICE={last_price}"
     )
 
     # LOGIKA BUY
     signal: Optional[str] = None
     buy_possible = bool(up_trend and macd_cross_up)
-    sell_possible = False  # na razie brak logiki short/SELL w strategii
+    sell_possible = False  # brak shortów
 
     if buy_possible:
         signal = "BUY"
 
-    # STATUS PRO — meta do START STATUS i logów
+    # STATUS PRO — meta
     filters = [
         up_trend,
         macd_cross_up,
@@ -111,7 +110,7 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     trend_4h = "UP" if up_trend else "DOWN"
     momentum = "UP" if macd_cross_up or last_macd > last_signal else "DOWN"
     rsi_trend = "UP" if last_rsi >= 50.0 else "DOWN"
-    big_trend = trend_4h  # na razie to samo, można później rozbudować
+    big_trend = trend_4h
 
     meta = {
         "price": last_price,
@@ -134,5 +133,32 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
         "rsi_trend": rsi_trend,
         "big_trend": big_trend,
     }
+
+    # ─────────────────────────────────────────────
+    #  DYNAMIC SUMMARY — inteligentne podsumowanie rynku
+    # ─────────────────────────────────────────────
+
+    trend = trend_4h
+    mom = momentum
+    rsi_val = last_rsi
+
+    if buy_possible:
+        meta["summary"] = "warunki BUY spełnione — możliwe wejście"
+    elif sell_possible:
+        meta["summary"] = "warunki SELL spełnione — możliwe wyjście"
+    elif trend == "UP" and mom == "UP":
+        meta["summary"] = "trend wzrostowy, sygnał BUY może pojawić się wkrótce"
+    elif trend == "DOWN" and mom == "DOWN":
+        meta["summary"] = "silny trend spadkowy, brak warunków do wejścia"
+    elif rsi_val < 30:
+        meta["summary"] = "rynek wyprzedany, możliwe odbicie"
+    elif rsi_val > 70:
+        meta["summary"] = "rynek wykupiony, możliwa korekta"
+    elif big_trend == "DOWN":
+        meta["summary"] = "dominujący trend spadkowy — ostrożnie"
+    elif big_trend == "UP":
+        meta["summary"] = "dominujący trend wzrostowy — rynek silny"
+    else:
+        meta["summary"] = "rynek neutralny, brak wyraźnego kierunku"
 
     return signal, meta
