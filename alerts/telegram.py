@@ -1,4 +1,6 @@
-# alerts/telegram.py — anti-spam, multi-user, jeden ostatni alert
+# alerts/telegram.py — v0.1.3
+# Anti-spam, multi-user, jeden ostatni alert
+# + pełne alerty BUY / SELL / START / ERROR
 
 import json
 import os
@@ -8,6 +10,14 @@ from settings.setting import (
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_IDS,
     TELEGRAM_ADMIN_ID,
+)
+
+from alerts.formats import (
+    fmt_buy,
+    fmt_sell,
+    fmt_system,
+    fmt_error,
+    fmt_start,
 )
 
 STATE_FILE = "state/telegram_state.json"
@@ -129,3 +139,35 @@ def send_system_alert(text: str):
     # Zapisz ID
     state["last_system_message_id"] = new_id
     _save_state(state)
+
+
+# ─────────────────────────────────────────────
+#  Alerty produkcyjne: BUY / SELL
+# ─────────────────────────────────────────────
+
+def send_buy_alert(symbol: str, price: float):
+    """Alert BUY — multi-user + anti-spam."""
+    text = fmt_buy(symbol, price)
+    send_production_alert(text)
+
+
+def send_sell_alert(symbol: str, price: float, pnl: float | None = None):
+    """Alert SELL — multi-user + anti-spam."""
+    text = fmt_sell(symbol, price, pnl)
+    send_production_alert(text)
+
+
+# ─────────────────────────────────────────────
+#  Alerty systemowe: START / ERROR
+# ─────────────────────────────────────────────
+
+def send_start_alert(symbol: str, interval: str, mode: str):
+    """Alert START — admin only + anti-spam."""
+    text = fmt_start(symbol, interval, mode)
+    send_system_alert(text)
+
+
+def send_error_alert(symbol: str, error: Exception):
+    """Alert ERROR — admin only + anti-spam."""
+    text = fmt_error(symbol, str(error))
+    send_system_alert(text)

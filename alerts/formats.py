@@ -5,7 +5,9 @@ def fmt_buy(symbol: str, price: float) -> str:
     return f"🟢 BUY {symbol}\nCena: {price}"
 
 
-def fmt_sell(symbol: str, price: float, pnl: float = None) -> str:
+# def fmt_sell(symbol: str, price: float, pnl: float = None) -> str:
+def fmt_sell(symbol: str, price: float, pnl: float | None = None) -> str:
+
     """Format alertu SELL."""
     if pnl is not None:
         return f"🔴 SELL {symbol}\nCena: {price}\nPnL: {pnl:.2f}"
