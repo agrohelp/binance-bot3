@@ -1,9 +1,8 @@
-# v0.1.4 — multi-symbol anti-spam (commit test)
+# v0.1.4 PRO — multi-symbol anti-spam + START STATUS PRO
 
 # Multi-symbol anti-spam
-# Każdy symbol ma własny ostatni alert BUY/SELL
+# Każdy symbol ma własny ostatni alert BUY/SELL/STATUS
 # START/ERROR pozostają wspólne (systemowe)
-# ja drugi raz commit
 
 import json
 import os
@@ -96,7 +95,7 @@ def _send(chat_id, text):
 
 def send_production_alert(symbol: str, text: str):
     """
-    BUY/SELL — każdy symbol ma własny plik stanu:
+    BUY/SELL/STATUS — każdy symbol ma własny plik stanu:
     state/telegram_state_<SYMBOL>.json
     """
     state_file = f"state/telegram_state_{symbol}.json"
@@ -152,6 +151,90 @@ def send_buy_alert(symbol: str, price: float):
 
 def send_sell_alert(symbol: str, price: float, pnl: float | None = None):
     text = fmt_sell(symbol, price, pnl)
+    send_production_alert(symbol, text)
+
+
+# ─────────────────────────────────────────────
+#  START STATUS PRO — produkcyjny status przy starcie
+# ─────────────────────────────────────────────
+
+def _format_start_status_status_line(signal: str | None, meta: dict) -> str:
+    buy_possible = bool(meta.get("buy_possible"))
+    sell_possible = bool(meta.get("sell_possible"))
+
+    if buy_possible and not sell_possible:
+        return "BUY możliwy (warunki spełnione)"
+    if sell_possible and not buy_possible:
+        return "SELL możliwy (warunki spełnione)"
+    if buy_possible and sell_possible:
+        return "BUY i SELL możliwe (logika do doprecyzowania)"
+    return "Brak sygnału (neutralny stan strategii)"
+
+
+def _format_start_status_text(symbol: str, interval: str, mode: str, signal: str | None, meta: dict) -> str:
+    price = meta.get("price")
+    atr = meta.get("atr")
+    ema_fast = meta.get("ema_fast")
+    ema_slow = meta.get("ema_slow")
+    rsi = meta.get("rsi")
+    stoch_k = meta.get("stoch_k")
+    stoch_d = meta.get("stoch_d")
+    macd = meta.get("macd")
+    macd_signal = meta.get("macd_signal")
+
+    filters_passed = meta.get("filters_passed")
+    filters_total = meta.get("filters_total")
+    trend_4h = meta.get("trend_4h")
+    momentum = meta.get("momentum")
+    rsi_trend = meta.get("rsi_trend")
+    big_trend = meta.get("big_trend")
+
+    status_line = _format_start_status_status_line(signal, meta)
+
+    # STATUS PRO — pełny raport startowy
+    lines = []
+
+    lines.append(f"🔵 START STATUS — {symbol}")
+    lines.append(f"Tryb: {mode} | Interwał: {interval}")
+    if price is not None:
+        lines.append(f"Cena: {price:.4f}")
+    else:
+        lines.append("Cena: brak danych")
+
+    lines.append("")
+    lines.append(status_line)
+
+    if filters_passed is not None and filters_total is not None:
+        lines.append(f"Filtry: {filters_passed}/{filters_total} OK")
+
+    lines.append("")
+    if trend_4h:
+        lines.append(f"Trend 4H: {trend_4h}")
+    if momentum:
+        lines.append(f"Momentum: {momentum}")
+    if rsi is not None:
+        lines.append(f"RSI: {rsi:.2f} ({rsi_trend or 'N/A'})")
+    if stoch_k is not None and stoch_d is not None:
+        lines.append(f"Stoch K/D: {stoch_k:.2f} / {stoch_d:.2f}")
+    if macd is not None and macd_signal is not None:
+        arrow = "↑" if macd > macd_signal else "↓"
+        lines.append(f"MACD: {macd:.6f} vs signal {macd_signal:.6f} ({arrow})")
+    if atr is not None:
+        lines.append(f"ATR: {float(atr):.4f}")
+
+    if big_trend:
+        lines.append("")
+        lines.append(f"Big Trend: {big_trend}")
+
+    return "\n".join(lines)
+
+
+def send_start_status_alert(symbol: str, interval: str, mode: str, signal: str | None, meta: dict):
+    """
+    Produkcyjny START STATUS — wysyłany przy starcie bota,
+    pokazuje aktualny stan strategii (BUY/SELL/NEUTRAL + meta).
+    """
+    text = _format_start_status_text(symbol, interval, mode, signal, meta)
     send_production_alert(symbol, text)
 
 

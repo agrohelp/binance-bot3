@@ -1,4 +1,4 @@
-# strategy/strategy_4h.py — 4H PRO (EMA TREND + MACD CROSS, ATR meta)
+# strategy/strategy_4h.py — 4H PRO (EMA TREND + MACD CROSS, ATR + STATUS PRO meta)
 
 from typing import Tuple, Optional
 import pandas as pd
@@ -29,10 +29,14 @@ def _stoch(df: pd.DataFrame, k_period: int = 14, d_period: int = 3):
 
 
 def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
-
     # Guard
     if df is None or df.empty or len(df) < max(50, cfg.ATR_PERIOD + 5):
-        return None, {"price": None, "df": df}
+        return None, {
+            "price": None,
+            "df": df,
+            "buy_possible": False,
+            "sell_possible": False,
+        }
 
     close = df["close"]
 
@@ -89,15 +93,30 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     )
 
     # LOGIKA BUY
-    signal = None
-    if up_trend and macd_cross_up:
+    signal: Optional[str] = None
+    buy_possible = bool(up_trend and macd_cross_up)
+    sell_possible = False  # na razie brak logiki short/SELL w strategii
+
+    if buy_possible:
         signal = "BUY"
 
-    # META dla ATR PRO i logów
+    # STATUS PRO — meta do START STATUS i logów
+    filters = [
+        up_trend,
+        macd_cross_up,
+    ]
+    filters_passed = sum(1 for f in filters if f)
+    filters_total = len(filters)
+
+    trend_4h = "UP" if up_trend else "DOWN"
+    momentum = "UP" if macd_cross_up or last_macd > last_signal else "DOWN"
+    rsi_trend = "UP" if last_rsi >= 50.0 else "DOWN"
+    big_trend = trend_4h  # na razie to samo, można później rozbudować
+
     meta = {
         "price": last_price,
         "df": df,
-        "atr": atr,
+        "atr": float(atr.iloc[-1]) if hasattr(atr, "iloc") else float(atr),
         "ema_fast": last_ema_fast,
         "ema_slow": last_ema_slow,
         "rsi": last_rsi,
@@ -105,6 +124,15 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
         "stoch_d": last_d,
         "macd": last_macd,
         "macd_signal": last_signal,
+        # STATUS PRO
+        "buy_possible": buy_possible,
+        "sell_possible": sell_possible,
+        "filters_passed": filters_passed,
+        "filters_total": filters_total,
+        "trend_4h": trend_4h,
+        "momentum": momentum,
+        "rsi_trend": rsi_trend,
+        "big_trend": big_trend,
     }
 
     return signal, meta

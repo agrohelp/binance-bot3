@@ -1,4 +1,4 @@
-# bot.py — v0.1.3 (single-symbol, stabilny, z pełnymi alertami)
+# bot.py — v0.1.4 PRO (single-symbol, stabilny, z pełnymi START STATUS alertami)
 
 import importlib
 import sys
@@ -11,16 +11,15 @@ from core.state import load_position_state, save_position_state
 from core.position import update_position_with_signal
 from strategy.strategy_4h import generate_signal
 
-# ALERTY v0.1.3
+# ALERTY v0.1.4
 from alerts.telegram import (
     send_start_alert,
     send_system_alert,
     send_buy_alert,
     send_sell_alert,
     send_error_alert,
+    send_start_status_alert,
 )
-
-
 
 logger = get_logger(__name__)
 
@@ -54,9 +53,23 @@ def main():
     symbol = cfg.SYMBOL
     interval = cfg.INTERVAL
 
-    # ALERT START
+    # ALERT START (systemowy)
     logger.info(f"Start bota dla {symbol} na interwale {interval} (MODE={MODE})")
     send_start_alert(symbol, interval, MODE)
+
+    # START STATUS (produkcyjny, STATUS PRO na podstawie aktualnego stanu strategii)
+    try:
+        df_start = fetch_candles_for_symbol(symbol, interval, cfg.CANDLES)
+
+        if df_start is None or df_start.empty:
+            logger.warning(f"Brak danych dla {symbol} przy starcie — pomijam START STATUS.")
+        else:
+            signal_start, meta_start = generate_signal(df_start, cfg)
+            # produkcyjny status BUY/SELL/NEUTRAL na wejściu
+            send_start_status_alert(symbol, interval, MODE, signal_start, meta_start)
+    except Exception as e:
+        logger.exception(f"Błąd przy generowaniu START STATUS dla {symbol}: {e}")
+        send_error_alert(symbol, e)
 
     # Stan pozycji dla danego symbolu
     position_state = load_position_state(symbol)
