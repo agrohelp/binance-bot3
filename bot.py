@@ -1,4 +1,4 @@
-# bot.py — v2.0 PRO (TREND STATUS + exit_reason + SL/TP/TS)
+# bot.py — v2.1 PRO (TREND STATUS FIXED + exit_reason + SL/TP/TS)
 print("ŁADUJĘ TEN PLIK:", __file__)
 
 import importlib
@@ -65,8 +65,9 @@ def main():
         logger.exception(f"Błąd START STATUS: {e}")
         send_error_alert(symbol, e)
 
+    # Wczytaj stan pozycji + last_trend_status
     position_state = load_position_state(symbol)
-    last_trend_status = 0
+    last_trend_status = position_state.get("last_trend_status", 0)
 
     while True:
         try:
@@ -122,12 +123,15 @@ def main():
                     )
 
             # ─────────────────────────────────────────────
-            #  TREND STATUS — poprawne wcięcie (wewnątrz try!)
+            #  TREND STATUS — tylko dla jednego symbolu + interwał + zapis stanu
             # ─────────────────────────────────────────────
             now = time.time()
 
-            if TREND_STATUS_ENABLED and symbol == TREND_STATUS_SYMBOL and now - last_trend_status >= TREND_STATUS_INTERVAL_MINUTES * 60:
-
+            if (
+                TREND_STATUS_ENABLED
+                and symbol == TREND_STATUS_SYMBOL
+                and now - last_trend_status >= TREND_STATUS_INTERVAL_MINUTES * 60
+            ):
                 try:
                     df_ts = fetch_candles_for_symbol(
                         TREND_STATUS_SYMBOL,
@@ -172,7 +176,10 @@ def main():
                 except Exception as e:
                     logger.error(f"TREND STATUS error: {e}")
 
+                # Zapisz timestamp, aby interwał działał po restarcie
                 last_trend_status = now
+                position_state["last_trend_status"] = last_trend_status
+                save_position_state(symbol, position_state)
 
         except Exception as e:
             logger.exception(f"Błąd głównej pętli: {e}")
