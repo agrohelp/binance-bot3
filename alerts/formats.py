@@ -1,13 +1,20 @@
-# alerts/formats.py — formatowanie wiadomości Telegram (czyste, spójne)
+# alerts/formats.py — FINAL SAFE VERSION
+
+def _fmt(v):
+    """Bezpieczne formatowanie liczb (.2f) — None → N/A"""
+    try:
+        return f"{float(v):.2f}"
+    except:
+        return "N/A"
+
 
 def fmt_buy(symbol: str, price: float, sl: float, tp: float, ts: float) -> str:
-    """Format alertu BUY — z rekomendowanym SL/TP/TS."""
     return (
         f"🟢 BUY — {symbol}\n"
-        f"Cena wejścia: {price:.2f}\n\n"
-        f"SL (Stop Loss): {sl:.2f}\n"
-        f"TP (Take Profit): {tp:.2f}\n"
-        f"TS (Trailing Stop): {ts:.2f}\n\n"
+        f"Cena wejścia: {_fmt(price)}\n\n"
+        f"SL (Stop Loss): {_fmt(sl)}\n"
+        f"TP (Take Profit): {_fmt(tp)}\n"
+        f"TS (Trailing Stop): {_fmt(ts)}\n\n"
         f"Powód: spełnione warunki strategii"
     )
 
@@ -21,49 +28,71 @@ def fmt_sell(
     ts: float | None = None,
     reason: str | None = None,
 ) -> str:
-    """Format alertu SELL — z pełnym kontekstem SL/TP/TS."""
 
     lines = []
     lines.append(f"🔴 SELL — {symbol}")
-    lines.append(f"Cena wyjścia: {price:.2f}")
+    lines.append(f"Cena wyjścia: {_fmt(price)}")
 
     if pnl is not None:
-        lines.append(f"Zysk: {pnl:.2f}%")
+        lines.append(f"Zysk: {_fmt(pnl)}%")
 
-    # Powód zamknięcia pozycji
     if reason:
         lines.append(f"Powód: {reason}")
 
-    # Rekomendowane poziomy (jeśli dostępne)
     if sl is not None or tp is not None or ts is not None:
         lines.append("")
         lines.append("Poziomy strategii:")
-        if sl is not None:
-            lines.append(f"SL: {sl:.2f}")
-        if tp is not None:
-            lines.append(f"TP: {tp:.2f}")
-        if ts is not None:
-            lines.append(f"TS: {ts:.2f}")
+        lines.append(f"SL: {_fmt(sl)}")
+        lines.append(f"TP: {_fmt(tp)}")
+        lines.append(f"TS: {_fmt(ts)}")
 
     return "\n".join(lines)
 
 
-
 def fmt_system(text: str) -> str:
-    """Format alertu systemowego."""
     return f"⚙️ SYSTEM\n{text}"
 
 
 def fmt_error(symbol: str, error: str) -> str:
-    """Format błędu."""
     return f"❗ ERROR {symbol}\n{error}"
 
 
 def fmt_start(symbol: str, interval: str, mode: str) -> str:
-    """Format komunikatu startowego."""
     return (
         f"🚀 START\n"
         f"Symbol: {symbol}\n"
         f"Interwał: {interval}\n"
         f"Tryb: {mode}"
     )
+
+
+def fmt_trend_status(
+    symbol: str,
+    timeframe: str,
+    price: float,
+    trend: str,
+    momentum: str,
+    rsi_val: float,
+    rsi_arrow: str,
+    macd_line: float,
+    macd_signal: float,
+    macd_arrow: str,
+    stoch_k: float,
+    stoch_d: float,
+    atr_val: float,
+    filters_ok: int,
+):
+    return f"""
+📊 TREND STATUS — {symbol} ({timeframe})
+Cena: *{_fmt(price)}*
+
+Trend: {trend}
+Momentum: {momentum}
+RSI: {_fmt(rsi_val)} ({rsi_arrow})
+MACD: {_fmt(macd_line)} < {_fmt(macd_signal)} ({macd_arrow})
+Stoch: {_fmt(stoch_k)} / {_fmt(stoch_d)}
+ATR: {_fmt(atr_val)}
+
+Filtry: {filters_ok}/2 OK
+Stan strategii: brak warunków do BUY
+"""

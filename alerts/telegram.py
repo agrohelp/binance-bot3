@@ -1,4 +1,4 @@
-# v0.1.5 — multi-symbol anti-spam + START STATUS PRO + polskie podsumowanie
+# v0.1.6 — multi-symbol anti-spam + START STATUS PRO + TREND STATUS auto-delete
 
 import json
 import os
@@ -20,6 +20,9 @@ from alerts.formats import (
 
 STATE_FILE_SYSTEM = "state/telegram_state_system.json"
 BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
+
+# TREND STATUS — pamięć ostatnich alertów (per user)
+TREND_STATUS_STATE_FILE = "state/telegram_state_trend.json"
 
 
 # ─────────────────────────────────────────────
@@ -126,7 +129,6 @@ def send_buy_alert(symbol: str, price: float, sl: float, tp: float, ts: float):
     send_production_alert(symbol, text)
 
 
-
 def send_sell_alert(
     symbol: str,
     price: float,
@@ -138,7 +140,6 @@ def send_sell_alert(
 ):
     text = fmt_sell(symbol, price, pnl, sl, tp, ts, reason)
     send_production_alert(symbol, text)
-
 
 
 # ─────────────────────────────────────────────
@@ -212,9 +213,6 @@ def _format_start_status_text(symbol: str, interval: str, mode: str, signal: str
         lines.append("")
         lines.append(f"Big Trend: {big_trend}")
 
-    # ─────────────────────────────────────────────
-    #  REKOMENDOWANE SL / TP / TS (jeśli dostępne)
-    # ─────────────────────────────────────────────
     rec_sl = meta.get("recommended_sl")
     rec_tp = meta.get("recommended_tp")
     rec_ts = meta.get("recommended_ts")
@@ -229,9 +227,6 @@ def _format_start_status_text(symbol: str, interval: str, mode: str, signal: str
         if rec_ts is not None:
             lines.append(f"TS: {rec_ts:.4f}")
 
-    # ─────────────────────────────────────────────
-    #  POLSKIE PODSUMOWANIE — czytelne dla laika
-    # ─────────────────────────────────────────────
     summary = meta.get("summary")
     if summary:
         lines.append("")
@@ -257,3 +252,38 @@ def send_start_alert(symbol: str, interval: str, mode: str):
 def send_error_alert(symbol: str, error: Exception):
     text = fmt_error(symbol, str(error))
     send_system_alert(text)
+
+
+# ─────────────────────────────────────────────
+#  TREND STATUS — auto-delete (jak BUY/SELL)
+# ─────────────────────────────────────────────
+
+def send_trend_status_alert(text: str):
+    """
+    TREND STATUS — wysyłany do ALL USERS.
+    Auto-delete poprzedniego alertu.
+    """
+    # Wczytaj stan
+    if os.path.exists(TREND_STATUS_STATE_FILE):
+        try:
+            with open(TREND_STATUS_STATE_FILE, "r") as f:
+                trend_state = json.load(f)
+        except Exception:
+            trend_state = {}
+    else:
+        trend_state = {}
+
+    # Usuń poprzednie alerty
+    for chat_id in TELEGRAM_CHAT_IDS:
+        last_id = trend_state.get(str(chat_id))
+        if last_id:
+            _delete_message(chat_id, last_id)
+
+    # Wyślij nowe alerty
+    for chat_id in TELEGRAM_CHAT_IDS:
+        new_id = _send(chat_id, text)
+        trend_state[str(chat_id)] = new_id
+
+    # Zapisz stan
+    with open(TREND_STATUS_STATE_FILE, "w") as f:
+        json.dump(trend_state, f, indent=2)

@@ -16,6 +16,12 @@ TELEGRAM_CHAT_IDS = [
     if chat_id.strip()
 ]
 
+# alert TREND-STATUS
+TREND_STATUS_ENABLED = True
+TREND_STATUS_TIMEFRAME = "4h"          # analizujemy trend na świecach 4H
+TREND_STATUS_INTERVAL_MINUTES = 60     # wysyłamy alert co 1 godzinę
+TREND_STATUS_SYMBOL = "XRPUSDC"           # główny symbol z settings
+
 # Admin — odbiorca alertów systemowych
 TELEGRAM_ADMIN_ID = os.getenv("TELEGRAM_ADMIN_ID")
 
