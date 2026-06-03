@@ -126,7 +126,8 @@ def main():
             # ─────────────────────────────────────────────
             now = time.time()
 
-            if TREND_STATUS_ENABLED and now - last_trend_status >= TREND_STATUS_INTERVAL_MINUTES * 60:
+            if TREND_STATUS_ENABLED and symbol == TREND_STATUS_SYMBOL and now - last_trend_status >= TREND_STATUS_INTERVAL_MINUTES * 60:
+
                 try:
                     df_ts = fetch_candles_for_symbol(
                         TREND_STATUS_SYMBOL,
