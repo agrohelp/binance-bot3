@@ -1,5 +1,6 @@
-# strategy/strategy_4h.py — 4H PRO v2.4
+# strategy/strategy_4h.py — 4H PRO v2.5
 # EMA TREND + MACD CROSS, ATR + STATUS PRO meta + dynamic SUMMARY
+# + REKOMENDOWANE SL/TP/TS (ATR-based)
 
 from typing import Tuple, Optional
 import pandas as pd
@@ -53,7 +54,7 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
         cfg.MACD_SIGNAL,
     )
 
-    # RSI (info)
+    # RSI
     delta = close.diff()
     gain = np.where(delta > 0, delta, 0.0)
     loss = np.where(delta < 0, -delta, 0.0)
@@ -62,13 +63,12 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     rs = roll_up / (roll_down + 1e-9)
     rsi = 100.0 - (100.0 / (1.0 + rs))
 
-    # STOCH (info)
+    # STOCH
     k, d = _stoch(df, cfg.STOCH_K, cfg.STOCH_D)
 
     # ATR
     atr = atr_core(df, cfg.ATR_PERIOD)
     last_price = float(close.iloc[-1])
-
 
     # Ostatnia świeca
     last_ema_fast = float(ema_fast.iloc[-1])
@@ -135,7 +135,28 @@ def generate_signal(df: pd.DataFrame, cfg) -> Tuple[Optional[str], dict]:
     }
 
     # ─────────────────────────────────────────────
-    #  DYNAMIC SUMMARY — inteligentne podsumowanie rynku
+    #  REKOMENDOWANE SL / TP / TS (ATR-BASED)
+    # ─────────────────────────────────────────────
+
+    atr_val = float(atr.iloc[-1]) if hasattr(atr, "iloc") else float(atr)
+
+    # SL = ATR * 2 poniżej ceny
+    recommended_sl = last_price - atr_val * 2
+
+    # TP = R:R 2:1 względem SL
+    rr_distance = last_price - recommended_sl
+    recommended_tp = last_price + rr_distance * 2
+
+    # TS = ATR * 1.5 (dynamiczny trailing stop)
+    recommended_ts = atr_val * 1.5
+
+    # Dodajemy do meta
+    meta["recommended_sl"] = recommended_sl
+    meta["recommended_tp"] = recommended_tp
+    meta["recommended_ts"] = recommended_ts
+
+    # ─────────────────────────────────────────────
+    #  DYNAMIC SUMMARY
     # ─────────────────────────────────────────────
 
     trend = trend_4h

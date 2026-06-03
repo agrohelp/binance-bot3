@@ -1,4 +1,4 @@
-# bot.py — v0.1.4 PRO (single-symbol, stabilny, z pełnymi START STATUS alertami)
+# bot.py — v0.1.5 PRO (exit_reason + SL/TP/TS w alertach)
 
 import importlib
 import sys
@@ -11,7 +11,7 @@ from core.state import load_position_state, save_position_state
 from core.position import update_position_with_signal
 from strategy.strategy_4h import generate_signal
 
-# ALERTY v0.1.4
+# ALERTY v0.1.5
 from alerts.telegram import (
     send_start_alert,
     send_system_alert,
@@ -25,9 +25,7 @@ logger = get_logger(__name__)
 
 
 def load_symbol_setting(module_name: str):
-    """
-    Dynamicznie ładuje moduł z katalogu settings/ (np. setting_btc).
-    """
+    """Dynamicznie ładuje moduł z katalogu settings/ (np. setting_btc)."""
     try:
         return importlib.import_module(f"settings.{module_name}")
     except ModuleNotFoundError:
@@ -35,14 +33,7 @@ def load_symbol_setting(module_name: str):
 
 
 def main():
-    """
-    Główna pętla bota:
-    - ładuje config symbolu
-    - pobiera świece
-    - wywołuje czystą strategię
-    - aktualizuje stan pozycji
-    - wysyła alerty
-    """
+    """Główna pętla bota."""
     if len(sys.argv) < 2:
         print("Użycie: python bot.py setting_btc")
         sys.exit(1)
@@ -57,7 +48,7 @@ def main():
     logger.info(f"Start bota dla {symbol} na interwale {interval} (MODE={MODE})")
     send_start_alert(symbol, interval, MODE)
 
-    # START STATUS (produkcyjny, STATUS PRO na podstawie aktualnego stanu strategii)
+    # START STATUS PRO
     try:
         df_start = fetch_candles_for_symbol(symbol, interval, cfg.CANDLES)
 
@@ -65,13 +56,13 @@ def main():
             logger.warning(f"Brak danych dla {symbol} przy starcie — pomijam START STATUS.")
         else:
             signal_start, meta_start = generate_signal(df_start, cfg)
-            # produkcyjny status BUY/SELL/NEUTRAL na wejściu
             send_start_status_alert(symbol, interval, MODE, signal_start, meta_start)
+
     except Exception as e:
         logger.exception(f"Błąd przy generowaniu START STATUS dla {symbol}: {e}")
         send_error_alert(symbol, e)
 
-    # Stan pozycji dla danego symbolu
+    # Stan pozycji
     position_state = load_position_state(symbol)
 
     while True:
@@ -84,10 +75,10 @@ def main():
                 time.sleep(10)
                 continue
 
-            # 2. Wygeneruj sygnał strategii
+            # 2. Sygnał strategii
             signal, meta = generate_signal(df, cfg)
 
-            # 3. Zaktualizuj stan pozycji
+            # 3. Logika pozycji (ATR PRO + exit_reason)
             position_state, alert = update_position_with_signal(
                 symbol=symbol,
                 signal=signal,
@@ -96,25 +87,43 @@ def main():
                 cfg=cfg,
             )
 
-            # 4. Zapisz stan pozycji
+            # 4. Zapis stanu
             save_position_state(symbol, position_state)
 
-            # 5. ALERTY PRODUKCYJNE (BUY / SELL)
+            # 5. ALERTY PRODUKCYJNE
             if alert:
-                # alert = np. "BUY 123.45" albo "SELL 125.00 PnL: 1.55"
                 parts = alert.split()
 
-                if parts[0] == "BUY":
+                # BUY
+                if parts[0] == "BUY" or "BUY" in alert:
                     price = float(parts[1])
-                    send_buy_alert(symbol, price)
+                    send_buy_alert(
+                        symbol,
+                        price,
+                        meta["recommended_sl"],
+                        meta["recommended_tp"],
+                        meta["recommended_ts"],
+                    )
 
-                elif parts[0] == "SELL":
+                # SELL (SL / TP / TS / MANUAL)
+                elif "SELL" in alert or "HIT" in alert:
                     price = float(parts[1])
-                    pnl = float(parts[3]) if len(parts) > 3 else None
-                    send_sell_alert(symbol, price, pnl)
+                    pnl = None
+
+                    # exit_reason pochodzi z position_state (NIE z meta!)
+                    exit_reason = position_state.get("exit_reason")
+
+                    send_sell_alert(
+                        symbol,
+                        price,
+                        pnl,
+                        meta.get("recommended_sl"),
+                        meta.get("recommended_tp"),
+                        meta.get("recommended_ts"),
+                        exit_reason,
+                    )
 
         except Exception as e:
-            # ALERT ERROR
             logger.exception(f"Błąd głównej pętli dla {symbol}: {e}")
             send_error_alert(symbol, e)
 

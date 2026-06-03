@@ -121,14 +121,24 @@ def send_system_alert(text: str):
 #  Alerty produkcyjne: BUY / SELL
 # ─────────────────────────────────────────────
 
-def send_buy_alert(symbol: str, price: float):
-    text = fmt_buy(symbol, price)
+def send_buy_alert(symbol: str, price: float, sl: float, tp: float, ts: float):
+    text = fmt_buy(symbol, price, sl, tp, ts)
     send_production_alert(symbol, text)
 
 
-def send_sell_alert(symbol: str, price: float, pnl: float | None = None):
-    text = fmt_sell(symbol, price, pnl)
+
+def send_sell_alert(
+    symbol: str,
+    price: float,
+    pnl: float | None,
+    sl: float | None,
+    tp: float | None,
+    ts: float | None,
+    reason: str | None,
+):
+    text = fmt_sell(symbol, price, pnl, sl, tp, ts, reason)
     send_production_alert(symbol, text)
+
 
 
 # ─────────────────────────────────────────────
@@ -201,6 +211,23 @@ def _format_start_status_text(symbol: str, interval: str, mode: str, signal: str
     if big_trend:
         lines.append("")
         lines.append(f"Big Trend: {big_trend}")
+
+    # ─────────────────────────────────────────────
+    #  REKOMENDOWANE SL / TP / TS (jeśli dostępne)
+    # ─────────────────────────────────────────────
+    rec_sl = meta.get("recommended_sl")
+    rec_tp = meta.get("recommended_tp")
+    rec_ts = meta.get("recommended_ts")
+
+    if rec_sl is not None or rec_tp is not None or rec_ts is not None:
+        lines.append("")
+        lines.append("Rekomendowane poziomy (strategia):")
+        if rec_sl is not None:
+            lines.append(f"SL: {rec_sl:.4f}")
+        if rec_tp is not None:
+            lines.append(f"TP: {rec_tp:.4f}")
+        if rec_ts is not None:
+            lines.append(f"TS: {rec_ts:.4f}")
 
     # ─────────────────────────────────────────────
     #  POLSKIE PODSUMOWANIE — czytelne dla laika

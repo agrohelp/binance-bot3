@@ -1,4 +1,4 @@
-# core/position.py — integracja ATR PRO (BUY/SELL + SL/TP/TS)
+# core/position.py — integracja ATR PRO (BUY/SELL + SL/TP/TS + exit_reason)
 
 from typing import Tuple, Optional
 from strategy.utils import atr_pro_trailing
@@ -29,11 +29,12 @@ def update_position_with_signal(
         position_state["sl"] = None
         position_state["tp"] = None
         position_state["ts_active"] = False
+        position_state["exit_reason"] = None  # reset
 
         alert_text = f"🟢 BUY {symbol} @ {price}"
         return position_state, alert_text
 
-    # 2. SELL — zamknięcie pozycji
+    # 2. SELL — zamknięcie pozycji (manualny SELL ze strategii — rzadko używany)
     if signal == "SELL" and current_position == "LONG":
         entry = position_state.get("entry_price")
         pnl = price - entry if entry is not None else None
@@ -43,6 +44,7 @@ def update_position_with_signal(
         position_state["sl"] = None
         position_state["tp"] = None
         position_state["ts_active"] = False
+        position_state["exit_reason"] = "MANUAL"
 
         if pnl is not None:
             alert_text = f"🔴 SELL {symbol} @ {price} | PnL: {pnl:.2f}"
@@ -59,10 +61,12 @@ def update_position_with_signal(
             cfg,
         )
 
+        # TS HIT
         if ts_alert:
+            position_state["exit_reason"] = "TS"
             return position_state, ts_alert
 
-        # SL
+        # SL HIT
         sl = position_state.get("sl")
         if sl and price <= sl:
             entry = position_state.get("entry_price")
@@ -73,11 +77,32 @@ def update_position_with_signal(
             position_state["sl"] = None
             position_state["tp"] = None
             position_state["ts_active"] = False
+            position_state["exit_reason"] = "SL"
 
             if pnl is not None:
                 alert_text = f"🔴 SL HIT {symbol} @ {price} | PnL: {pnl:.2f}"
             else:
                 alert_text = f"🔴 SL HIT {symbol} @ {price}"
+
+            return position_state, alert_text
+
+        # TP HIT (jeśli kiedyś dodasz TP logic)
+        tp = position_state.get("tp")
+        if tp and price >= tp:
+            entry = position_state.get("entry_price")
+            pnl = price - entry if entry is not None else None
+
+            position_state["position"] = None
+            position_state["entry_price"] = None
+            position_state["sl"] = None
+            position_state["tp"] = None
+            position_state["ts_active"] = False
+            position_state["exit_reason"] = "TP"
+
+            if pnl is not None:
+                alert_text = f"🔴 TP HIT {symbol} @ {price} | PnL: {pnl:.2f}"
+            else:
+                alert_text = f"🔴 TP HIT {symbol} @ {price}"
 
             return position_state, alert_text
 
