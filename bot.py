@@ -1,4 +1,4 @@
-# bot.py — v2.2 PRO (TREND STATUS FIXED + exit_reason + SL/TP/TS)
+# bot.py — v2.3 PRO (TREND STATUS FIXED + exit_reason + SL/TP/TS + NO START LOOP)
 print("ŁADUJĘ TEN PLIK:", __file__)
 
 import importlib
@@ -59,7 +59,7 @@ def main():
     logger.info(f"Start bota dla {symbol} na interwale {interval} (MODE={MODE})")
     send_start_alert(symbol, interval, MODE)
 
-    # START STATUS PRO
+    # START STATUS PRO — wykonuje się tylko raz
     try:
         df_start = fetch_candles_for_symbol(symbol, interval, cfg.CANDLES)
         if df_start is not None and not df_start.empty:
@@ -69,9 +69,14 @@ def main():
         logger.exception(f"Błąd START STATUS: {e}")
         send_error_alert(symbol, e)
 
-    # Wczytaj stan pozycji + last_trend_status
+    # Wczytaj stan pozycji
     position_state = load_position_state(symbol)
-    last_trend_status = position_state.get("last_trend_status", 0)
+
+    # TREND STATUS timestamp tylko dla symbolu TREND_STATUS_SYMBOL
+    if symbol == TREND_STATUS_SYMBOL:
+        last_trend_status = position_state.get("last_trend_status", 0)
+    else:
+        last_trend_status = 0  # zapobiega pętli alertów startowych
 
     while True:
         try:
@@ -194,7 +199,7 @@ def main():
                 except Exception as e:
                     logger.error(f"TREND STATUS error: {e}")
 
-                # Zapisz timestamp
+                # Zapisz timestamp tylko dla symbolu TREND_STATUS_SYMBOL
                 last_trend_status = now
                 position_state["last_trend_status"] = last_trend_status
                 save_position_state(symbol, position_state)
