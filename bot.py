@@ -1,4 +1,4 @@
-# bot.py — v2.1 PRO (TREND STATUS FIXED + exit_reason + SL/TP/TS)
+# bot.py — v2.2 PRO (TREND STATUS FIXED + exit_reason + SL/TP/TS)
 print("ŁADUJĘ TEN PLIK:", __file__)
 
 import importlib
@@ -30,7 +30,11 @@ from alerts.telegram import (
     send_trend_status_alert,
 )
 
-from alerts.formats import fmt_trend_status
+from alerts.formats import (
+    fmt_trend_status,
+    compute_strategy_state,
+    compute_summary,
+)
 
 logger = get_logger(__name__)
 
@@ -123,7 +127,7 @@ def main():
                     )
 
             # ─────────────────────────────────────────────
-            #  TREND STATUS — tylko dla jednego symbolu + interwał + zapis stanu
+            #  TREND STATUS PRO
             # ─────────────────────────────────────────────
             now = time.time()
 
@@ -154,6 +158,14 @@ def main():
                     atr_val = meta_ts.get("atr")
                     filters_ok = meta_ts.get("filters_passed", 0)
 
+                    # NOWE — pełna logika PRO
+                    strategy_state = compute_strategy_state(filters_ok, trend)
+                    big_trend = trend  # dopóki nie dodamy 1D
+                    sl = meta_ts.get("recommended_sl")
+                    tp = meta_ts.get("recommended_tp")
+                    ts = meta_ts.get("recommended_ts")
+                    summary = compute_summary(trend, momentum, big_trend, filters_ok)
+
                     text = fmt_trend_status(
                         TREND_STATUS_SYMBOL,
                         TREND_STATUS_TIMEFRAME,
@@ -169,6 +181,12 @@ def main():
                         stoch_d,
                         atr_val,
                         filters_ok,
+                        strategy_state,
+                        big_trend,
+                        sl,
+                        tp,
+                        ts,
+                        summary,
                     )
 
                     send_trend_status_alert(text)
@@ -176,7 +194,7 @@ def main():
                 except Exception as e:
                     logger.error(f"TREND STATUS error: {e}")
 
-                # Zapisz timestamp, aby interwał działał po restarcie
+                # Zapisz timestamp
                 last_trend_status = now
                 position_state["last_trend_status"] = last_trend_status
                 save_position_state(symbol, position_state)

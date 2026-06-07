@@ -1,4 +1,4 @@
-SYMBOL = "XRPUSDC"      # Para handlowa (np. BTCUSDT, ETHUSDC)
+SYMBOL = "XRPUSDT"      # Para handlowa (np. BTCUSDT, ETHUSDT)
 INTERVAL = "4h"         # Interwał świec używany przez strategię
 CANDLES = 300           # Ilość świec do pobrania (wystarcza dla EMA/MACD/ATR)
 

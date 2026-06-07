@@ -30,3 +30,7 @@ config.json
 # --- WINDOWS / VS CODE ---
 Thumbs.db
 .vscode/
+
+state/*.json
+*.sh
+
