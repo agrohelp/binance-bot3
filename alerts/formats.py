@@ -1,4 +1,4 @@
-# alerts/formats.py — FINAL SAFE VERSION
+# alerts/formats.py — FINAL PRO VERSION
 
 def _fmt(v):
     """Bezpieczne formatowanie liczb (.2f) — None → N/A"""
@@ -7,6 +7,39 @@ def _fmt(v):
     except:
         return "N/A"
 
+
+# ─────────────────────────────────────────────
+#  LOGIKA STRATEGII — DODANE WERSJE PRO
+# ─────────────────────────────────────────────
+
+def compute_strategy_state(filters_ok: int, trend: str) -> str:
+    """Zwraca dynamiczny stan strategii."""
+    if filters_ok == 2 and trend == "UP":
+        return "BUY możliwy"
+    if filters_ok == 2 and trend == "DOWN":
+        return "SELL możliwy"
+    return "brak sygnału"
+
+
+def compute_summary(trend: str, momentum: str, big_trend: str, filters_ok: int) -> str:
+    """Inteligentne podsumowanie sytuacji rynkowej."""
+    if filters_ok == 2 and trend == "UP":
+        return "warunki sprzyjają BUY"
+    if filters_ok == 2 and trend == "DOWN":
+        return "warunki sprzyjają SELL"
+
+    if big_trend == "DOWN" and momentum == "UP":
+        return "odbicie w trendzie spadkowym — ostrożnie"
+
+    if big_trend == "UP" and momentum == "DOWN":
+        return "korekta w trendzie wzrostowym"
+
+    return "neutralnie"
+
+
+# ─────────────────────────────────────────────
+#  ALERTY TRANSAKCYJNE
+# ─────────────────────────────────────────────
 
 def fmt_buy(symbol: str, price: float, sl: float, tp: float, ts: float) -> str:
     return (
@@ -66,6 +99,10 @@ def fmt_start(symbol: str, interval: str, mode: str) -> str:
     )
 
 
+# ─────────────────────────────────────────────
+#  TREND STATUS PRO — FINALNA WERSJA
+# ─────────────────────────────────────────────
+
 def fmt_trend_status(
     symbol: str,
     timeframe: str,
@@ -81,6 +118,12 @@ def fmt_trend_status(
     stoch_d: float,
     atr_val: float,
     filters_ok: int,
+    strategy_state: str,
+    big_trend: str,
+    sl: float,
+    tp: float,
+    ts: float,
+    summary: str,
 ):
     return f"""
 📊 TREND STATUS — {symbol} ({timeframe})
@@ -94,5 +137,14 @@ Stoch: {_fmt(stoch_k)} / {_fmt(stoch_d)}
 ATR: {_fmt(atr_val)}
 
 Filtry: {filters_ok}/2 OK
-Stan strategii: brak warunków do BUY
+Stan strategii: {strategy_state}
+
+Big Trend: {big_trend}
+
+Rekomendowane poziomy:
+SL: {_fmt(sl)}
+TP: {_fmt(tp)}
+TS: {_fmt(ts)}
+
+Podsumowanie: {summary}
 """
